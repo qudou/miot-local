@@ -10,7 +10,7 @@ const xmlplus = require("xmlplus");
 const ID = "aee81434-fe5f-451a-b522-ae4631da5f45";
 const Gateway = "c55d5e0e-f506-4933-8962-c87932e0bc2a";
 
-xmlplus("miot", (xp, $_, t) => {
+xmlplus("miot-local", (xp, $_, t) => {
 
 $_().imports({
     Index: {
@@ -28,8 +28,8 @@ $_().imports({
             server.on("subscribed", async (topic, client) => {
                 let data = options[topic].data;
                 items.parts.update(topic, 1);
-                this.notify("to-gateway", {ssid: topic, online: 1, data: data});
                 this.notify("to-part", [topic, {topic: "message", body: data}]);
+                this.notify("to-gateway", {ssid: topic, online: 1, data: data});
             });
             server.on("unsubscribed", (topic, client) => {
                 items.parts.update(topic, 0);
@@ -130,4 +130,4 @@ $_("sqlite").imports({
     }
 });
 
-}).startup("//miot/Index");
+}).startup("//miot-local/Index");
