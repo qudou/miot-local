@@ -53,7 +53,7 @@ $_().imports({
     },
     Proxy: {
         xml: "<Parts id='parts'/>",
-        opt: { server: "mqtt://t-store.cn:1888", clientId: ID },
+        opt: { server: "mqtt://t-store.cn:1883", clientId: ID },
         fun: function (sys, items, opts) {
             let client  = require("mqtt").connect(opts.server, opts);
             client.on("connect", async e => {
