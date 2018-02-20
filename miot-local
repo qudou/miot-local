@@ -6,12 +6,12 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # X-Interactive:     true
-# Short-Description: Start/stop miot server
+# Short-Description: Start/stop miot-local server
 ### END INIT INFO
 
-DEAMON=/root/miot/miot.js
-LOG=/var/log/miot.log
-PID=/var/run/miot.pid
+DEAMON=/root/miot-local/miot-local.js
+LOG=/var/log/miot-local.log
+PID=/var/run/miot-local.pid
 
 export PATH=$PATH:/usr/local/bin
 export NODE_PATH=$NODE_PATH:/usr/local/lib/node_modules
