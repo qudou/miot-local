@@ -18,10 +18,13 @@ $_().imports({
                 <Mosca id='mosca'/>\
                 <Proxy id='proxy'/>\
               </main>",
-        map: { share: "sqlite/Sqlite Parts" }
+        map: { share: "sqlite/Sqlite mosca/Parts" }
     },
     Mosca: {
-        xml: "<Parts id='parts'/>",
+        xml: "<main id='mosca' xmlns:i='mosca'>\
+                <i:Authorize id='auth'/>\
+                <i:Parts id='parts'/>\
+              </main>",
         fun: async function (sys, items, opts) {
             let options = await items.parts.data();
             let server = new mosca.Server({port: 1883});
@@ -43,7 +46,9 @@ $_().imports({
                     this.notify("to-gateway", {ssid: msg.ssid, data: msg.data});
                 }
             });
-            server.on("ready", () => {
+            server.on("ready", async () => {
+                await items.parts.offlineAll();
+                Object.keys(items.auth).forEach(k => server[k] = items.auth[k]);
                 console.log("Mosca server is up and running"); 
             });
             this.watch("to-part", (e, topic, msg) => {
@@ -52,7 +57,7 @@ $_().imports({
         }
     },
     Proxy: {
-        xml: "<Parts id='parts'/>",
+        xml: "<Parts id='parts' xmlns='mosca'/>",
         opt: { server: "mqtt://t-store.cn:1883", clientId: ID },
         fun: function (sys, items, opts) {
             let client  = require("mqtt").connect(opts.server, opts);
@@ -71,10 +76,31 @@ $_().imports({
                 client.publish(Gateway, JSON.stringify(payload), {qos: 1, retain: false});
             });
         }
+    }
+});
+
+$_("mosca").imports({
+    Authorize: {
+        xml: "<Parts id='parts'/>",
+        fun: function (sys, items, opts) {
+            async function authorizeSubscribe(client, topic, callback) {
+                callback(null, await items.parts.canSubscribe(topic));
+            }
+            return { authorizeSubscribe: authorizeSubscribe };
+        }
     },
     Parts: {
         xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
         fun: function (sys, items, opts) {
+            function canSubscribe(partId) {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT * FROM parts WHERE id = '${partId}' AND online = 0`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(!!data.length);
+                    });
+                });
+            }
             function data() {
                 return new Promise(resolve => {
                     items.sqlite.all("SELECT * FROM parts", (err, rows) => {
@@ -102,7 +128,16 @@ $_().imports({
                     if (err) throw err;
                 });
             }
-            return { data: data, update: update, cache: cache };
+            function offlineAll() {
+                return new Promise((resolve, reject) => {
+                    let stmt = items.sqlite.prepare("UPDATE parts SET online=?");
+                    stmt.run(0, err => {
+                        if (err) throw err;
+                        resolve(true);
+                    });
+                });
+            }
+            return { canSubscribe: canSubscribe, data: data, update: update, cache: cache, offlineAll: offlineAll };
         }
     }
 });
