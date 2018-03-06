@@ -7,7 +7,7 @@
 
 const mosca = require("mosca");
 const xmlplus = require("xmlplus");
-const ID = "aee81434-fe5f-451a-b522-ae4631da5f45";
+const ID = "195b858f-442e-4b45-8875-a32ccf7a46e0";
 const Gateway = "c55d5e0e-f506-4933-8962-c87932e0bc2a";
 
 xmlplus("miot-local", (xp, $_, t) => {
@@ -18,7 +18,7 @@ $_().imports({
                 <Mosca id='mosca'/>\
                 <Proxy id='proxy'/>\
               </main>",
-        map: { share: "sqlite/Sqlite mosca/Parts" }
+        map: { share: "sqlite/Sqlite mosca/Links mosca/Parts" }
     },
     Mosca: {
         xml: "<main id='mosca' xmlns:i='mosca'>\
@@ -27,7 +27,12 @@ $_().imports({
               </main>",
         fun: async function (sys, items, opts) {
             let options = await items.parts.data();
-            let server = new mosca.Server({port: 1883});
+            let server = new mosca.Server({port: 1883});            
+            server.on("ready", async () => {
+                await items.parts.offlineAll();
+                Object.keys(items.auth).forEach(k => server[k] = items.auth[k]);
+                console.log("Mosca server is up and running"); 
+            });
             server.on("subscribed", async (topic, client) => {
                 let data = options[topic].data;
                 items.parts.update(topic, 1);
@@ -39,17 +44,13 @@ $_().imports({
                 this.notify("to-gateway", {ssid: topic, online: 0});
             });
             server.on("published", async (packet, client) => {
-                if (packet.topic == ID) {
+                if (client == undefined) return;
+                if (packet.topic == "to-gateway") {
                     let msg = JSON.parse(packet.payload + '');
                     xp.extend(options[msg.ssid].data, msg.data);
                     items.parts.cache(msg.ssid, options[msg.ssid].data);
                     this.notify("to-gateway", {ssid: msg.ssid, data: msg.data});
                 }
-            });
-            server.on("ready", async () => {
-                await items.parts.offlineAll();
-                Object.keys(items.auth).forEach(k => server[k] = items.auth[k]);
-                console.log("Mosca server is up and running"); 
             });
             this.watch("to-part", (e, topic, msg) => {
                 server.publish({topic: topic, payload: JSON.stringify(msg), qos: 1, retain: false});
@@ -64,8 +65,9 @@ $_().imports({
             client.on("connect", async e => {
                 client.subscribe(opts.clientId);
                 let parts = await items.parts.data();
-                for (let item in parts)
+                xp.each(parts, (key, item) => {
                     this.notify("to-gateway", {ssid: item.ssid, online: item.online, data: item.data});
+                });
                 console.log("connected to " + opts.server);
             });
             client.on("message", (topic, msg) => {
@@ -81,12 +83,33 @@ $_().imports({
 
 $_("mosca").imports({
     Authorize: {
-        xml: "<Parts id='parts'/>",
+        xml: "<main id='authorize'>\
+                <Links id='links'/>\
+                <Parts id='parts'/>\
+              </main>",
         fun: function (sys, items, opts) {
+            async function authenticate(client, user, pass, callback) {
+                callback(null, await items.links.canLink(client.id));
+            }
             async function authorizeSubscribe(client, topic, callback) {
                 callback(null, await items.parts.canSubscribe(topic));
             }
-            return { authorizeSubscribe: authorizeSubscribe };
+            return { authenticate: authenticate, authorizeSubscribe: authorizeSubscribe };
+        }
+    },
+    Links: {
+        xml: "<Sqlite id='sqlite' xmlns='/sqlite'/>",
+        fun: function (sys, items, opts) {
+            function canLink(linkId) {
+                return new Promise((resolve, reject) => {
+                    let stmt = `SELECT * FROM links WHERE id = '${linkId}'`;
+                    items.sqlite.all(stmt, (err, data) => {
+                        if (err) throw err;
+                        resolve(!!data.length);
+                    });
+                });
+            }
+            return { canLink: canLink };
         }
     },
     Parts: {
@@ -94,7 +117,7 @@ $_("mosca").imports({
         fun: function (sys, items, opts) {
             function canSubscribe(partId) {
                 return new Promise((resolve, reject) => {
-                    let stmt = `SELECT * FROM parts WHERE id = '${partId}' AND online = 0`;
+                    let stmt = `SELECT parts.* FROM links, parts WHERE parts.id = '${partId}' AND parts.link = links.id AND parts.online = 0`;
                     items.sqlite.all(stmt, (err, data) => {
                         if (err) throw err;
                         resolve(!!data.length);
@@ -123,8 +146,8 @@ $_("mosca").imports({
                 });
             }
             function cache(id, data) {
-                let stmt = items.sqlite.prepare("INSERT Or REPLACE INTO parts VALUES (?,?,?)");
-                stmt.run(id, JSON.stringify(data), 1, err => {
+                let stmt = items.sqlite.prepare("UPDATE parts set data = ? WHERE id = ?");
+                stmt.run(JSON.stringify(data), id, err => {
                     if (err) throw err;
                 });
             }
