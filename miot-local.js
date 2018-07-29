@@ -7,8 +7,6 @@
 
 const mosca = require("mosca");
 const xmlplus = require("xmlplus");
-const ID = "195b858f-442e-4b45-8875-a32ccf7a46e0";
-const Gateway = "c55d5e0e-f506-4933-8962-c87932e0bc2a";
 
 xmlplus("miot-local", (xp, $_, t) => {
 
@@ -58,10 +56,13 @@ $_().imports({
         }
     },
     Proxy: {
-        xml: "<Parts id='parts' xmlns='mosca'/>",
-        opt: { server: "mqtt://xmlplus.cn:1883", clientId: ID },
-        fun: function (sys, items, opts) {
-            let client  = require("mqtt").connect(opts.server, opts);
+        xml: "<main id='proxy'>\
+                <Sqlite id='db'/>\
+                <Parts id='parts' xmlns='mosca'/>\
+              </main>",
+        fun: async function (sys, items, opts) {
+            let opts_ = await options();
+            let client  = require("mqtt").connect(opts_.server, opts_.client_id);
             client.on("connect", async e => {
                 client.subscribe(opts.clientId);
                 let parts = await items.parts.data();
@@ -75,8 +76,18 @@ $_().imports({
                 this.notify("to-part", [msg.ssid, msg.body]);
             });
             this.watch("to-gateway", (e, payload) => {
-                client.publish(Gateway, JSON.stringify(payload), {qos: 1, retain: false});
+                client.publish(opts_.gateway, JSON.stringify(payload), {qos: 1, retain: false});
             });
+            function options() {
+                return new Promise((resolve, reject) => {
+                    items.db.all(`SELECT * FROM options`, (err, data) => {
+                        if (err) throw err;
+                        let obj = {};
+                        data.forEach(i => obj[i.key] = i.value);
+                        resolve(obj);
+                    });
+                });
+            }
         }
     }
 });
