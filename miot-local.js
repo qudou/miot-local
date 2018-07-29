@@ -56,20 +56,20 @@ $_().imports({
         }
     },
     Proxy: {
-        xml: "<main id='proxy'>\
-                <Sqlite id='db'/>\
-                <Parts id='parts' xmlns='mosca'/>\
+        xml: "<main id='proxy' xmlns:i='mosca'>\
+                <i:Sqlite id='db'/>\
+                <i:Parts id='parts'/>\
               </main>",
         fun: async function (sys, items, opts) {
             let opts_ = await options();
-            let client  = require("mqtt").connect(opts_.server, opts_.client_id);
+            let client  = require("mqtt").connect(opts_.server, {clientId: opts_.client_id});
             client.on("connect", async e => {
-                client.subscribe(opts.clientId);
+                client.subscribe(opts_.client_id);
                 let parts = await items.parts.data();
                 xp.each(parts, (key, item) => {
                     this.notify("to-gateway", {ssid: item.ssid, online: item.online, data: item.data});
                 });
-                console.log("connected to " + opts.server);
+                console.log("connected to " + opts_.server);
             });
             client.on("message", (topic, msg) => {
                 msg = JSON.parse(msg.toString());
