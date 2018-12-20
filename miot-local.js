@@ -18,7 +18,7 @@ $_().imports({
               </main>",
         map: { share: "mosca/Sqlite mosca/Links mosca/Parts" }
     },
-    Mosca: {
+    Mosca: { // 本 MQTT 服务器用于连接局域网内的 MQTT 客户端
         xml: "<main id='mosca' xmlns:i='mosca'>\
                 <i:Authorize id='auth'/>\
                 <i:Parts id='parts'/>\
@@ -51,11 +51,11 @@ $_().imports({
                 }
             });
             this.watch("to-part", (e, topic, msg) => {
-                server.publish({topic: topic, payload: JSON.stringify(msg), qos: 1, retain: false});
+                server.publish({topic: topic, payload: JSON.stringify(msg), qos: 1, retain: true});
             });
         }
     },
-    Proxy: {
+    Proxy: {  // 本代理作为客户端连接至远程云服务器
         xml: "<main id='proxy' xmlns:i='mosca'>\
                 <i:Sqlite id='db'/>\
                 <i:Parts id='parts'/>\
@@ -76,7 +76,7 @@ $_().imports({
                 this.notify("to-part", [msg.ssid, msg.body]);
             });
             this.watch("to-gateway", (e, payload) => {
-                client.publish(opts_.gateway, JSON.stringify(payload), {qos: 1, retain: false});
+                client.publish(opts_.gateway, JSON.stringify(payload), {qos: 1, retain: true});
             });
             function options() {
                 return new Promise((resolve, reject) => {
