@@ -35,11 +35,11 @@ $_().imports({
                 let data = options[topic].data;
                 await items.parts.update(topic, 1);
                 this.notify("to-part", [topic, {topic: "message", body: data}]);
-                this.notify("to-gateway", {ssid: topic, online: 1, data: data});
+                this.notify("to-gateway", {pid: topic, online: 1, data: data});
             });
             server.on("unsubscribed", async (topic, client) => {
                 await items.parts.update(topic, 0);
-                this.notify("to-gateway", {ssid: topic, online: 0});
+                this.notify("to-gateway", {pid: topic, online: 0});
             });
             server.on("published", (packet, client) => {
                 if (client == undefined) return;
@@ -47,11 +47,12 @@ $_().imports({
                     let msg = JSON.parse(packet.payload + '');
                     xp.extend(options[msg.ssid].data, msg.data);
                     items.parts.cache(msg.ssid, options[msg.ssid].data);
-                    this.notify("to-gateway", {ssid: msg.ssid, data: msg.data});
+                    this.notify("to-gateway", {pid: msg.ssid, data: msg.data});
                 }
             });
-            this.watch("to-part", (e, topic, msg) => {
-                server.publish({topic: topic, payload: JSON.stringify(msg), qos: 1, retain: true});
+            this.watch("to-part", (e, topic, payload) => {
+                payload = JSON.stringify(payload);
+                server.publish({topic: topic, payload: payload, qos: 1, retain: true});
             });
         }
     },
@@ -67,16 +68,17 @@ $_().imports({
                 client.subscribe(opts_.client_id);
                 let parts = await items.parts.data();
                 xp.each(parts, (key, item) => {
-                    this.notify("to-gateway", {ssid: item.ssid, online: item.online, data: item.data});
+                    this.notify("to-gateway", {pid: item.ssid, online: item.online, data: item.data});
                 });
                 console.log("connected to " + opts_.server);
             });
-            client.on("message", (topic, msg) => {
-                msg = JSON.parse(msg.toString());
-                this.notify("to-part", [msg.ssid, msg.body]);
+            client.on("message", (topic, payload) => {
+                let p = JSON.parse(payload.toString());
+                this.notify("to-part", [p.pid, p.body]);
             });
             this.watch("to-gateway", (e, payload) => {
-                client.publish(opts_.gateway, JSON.stringify(payload), {qos: 1, retain: true});
+                payload = JSON.stringify(payload);
+                client.publish(opts_.gateway, payload, {qos: 1, retain: true});
             });
             function options() {
                 return new Promise((resolve, reject) => {
