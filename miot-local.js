@@ -8,7 +8,7 @@
 const mosca = require("mosca");
 const xmlplus = require("xmlplus");
 
-xmlplus("miot-local", (xp, $_, t) => {
+xmlplus("miot-local", (xp, $_) => {
 
 $_().imports({
     Index: {
@@ -35,7 +35,7 @@ $_().imports({
                 let data = options[topic].data;
                 await items.parts.update(topic, 1);
                 this.notify("to-part", [topic, {topic: "message", body: data}]);
-                this.notify("to-gateway", {pid: topic, online: 1, data: data});
+                this.notify("to-gateway", {topic: "data-change", pid: topic, online: 1, data: data});
             });
             server.on("unsubscribed", async (topic, client) => {
                 await items.parts.update(topic, 0);
@@ -44,10 +44,12 @@ $_().imports({
             server.on("published", (packet, client) => {
                 if (client == undefined) return;
                 if (packet.topic == "to-gateway") {
-                    let msg = JSON.parse(packet.payload + '');
-                    xp.extend(options[msg.ssid].data, msg.data);
-                    items.parts.cache(msg.ssid, options[msg.ssid].data);
-                    this.notify("to-gateway", {pid: msg.ssid, data: msg.data});
+                    let payload = JSON.parse(packet.payload + '');
+                    if (payload.topic == "data-change") {
+                        xp.extend(options[payload.pid].data, payload.data);
+                        items.parts.cache(payload.pid, options[payload.pid].data);
+                    }
+                    this.notify("to-gateway", payload);
                 }
             });
             this.watch("to-part", (e, topic, payload) => {
@@ -68,7 +70,7 @@ $_().imports({
                 client.subscribe(opts_.client_id);
                 let parts = await items.parts.data();
                 xp.each(parts, (key, item) => {
-                    this.notify("to-gateway", {pid: item.ssid, online: item.online, data: item.data});
+                    this.notify("to-gateway", {topic: "data-change", pid: item.pid, online: item.online, data: item.data});
                 });
                 console.log("connected to " + opts_.server);
             });
@@ -143,10 +145,10 @@ $_("mosca").imports({
                         if (err) throw err;
                         let table = {};
                         rows.forEach(item => {
-                            item.ssid = item.id;
+                            item.pid = item.id;
                             delete item.id;
                             item.data = JSON.parse(item.data);
-                            table[item.ssid] = item;
+                            table[item.pid] = item;
                         });
                         resolve(table);
                     });
