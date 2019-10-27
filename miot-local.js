@@ -32,23 +32,19 @@ $_().imports({
                 console.log("Mosca server is up and running"); 
             });
             server.on("subscribed", async (topic, client) => {
-                let data = options[topic].data;
                 await items.parts.update(topic, 1);
-                this.notify("to-part", [topic, {topic: "message", body: data}]);
-                this.notify("to-gateway", {topic: "data-change", pid: topic, online: 1, data: data});
+                this.notify("to-gateway", {topic: "/SYS", pid: topic, online: 1});
             });
             server.on("unsubscribed", async (topic, client) => {
                 await items.parts.update(topic, 0);
-                this.notify("to-gateway", {pid: topic, online: 0});
+                this.notify("to-gateway", {topic: "/SYS", pid: topic, online: 0});
             });
             server.on("published", (packet, client) => {
                 if (client == undefined) return;
                 if (packet.topic == "to-gateway") {
                     let payload = JSON.parse(packet.payload + '');
-                    if (payload.topic == "data-change") {
-                        xp.extend(options[payload.pid].data, payload.data);
-                        items.parts.cache(payload.pid, options[payload.pid].data);
-                    }
+                    if (payload.topic == "/SYS")
+                        items.parts.update(payload.pid, payload.online);
                     this.notify("to-gateway", payload);
                 }
             });
@@ -70,7 +66,7 @@ $_().imports({
                 client.subscribe(opts_.client_id);
                 let parts = await items.parts.data();
                 xp.each(parts, (key, item) => {
-                    this.notify("to-gateway", {topic: "data-change", pid: item.pid, online: item.online, data: item.data});
+                    this.notify("to-gateway", {topic: "/SYS", pid: item.pid, online: item.online});
                 });
                 console.log("connected to " + opts_.server);
             });
@@ -147,7 +143,6 @@ $_("mosca").imports({
                         rows.forEach(item => {
                             item.pid = item.id;
                             delete item.id;
-                            item.data = JSON.parse(item.data);
                             table[item.pid] = item;
                         });
                         resolve(table);
