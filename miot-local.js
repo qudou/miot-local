@@ -158,12 +158,6 @@ $_("mosca").imports({
                     });
                 });
             }
-            function cache(id, data) {
-                let stmt = items.db.prepare("UPDATE parts set data = ? WHERE id = ?");
-                stmt.run(JSON.stringify(data), id, err => {
-                    if (err) throw err;
-                });
-            }
             function offlineAll() {
                 return new Promise((resolve, reject) => {
                     let stmt = items.db.prepare("UPDATE parts SET online=?");
@@ -173,7 +167,7 @@ $_("mosca").imports({
                     });
                 });
             }
-            return { canSubscribe: canSubscribe, data: data, update: update, cache: cache, offlineAll: offlineAll };
+            return { canSubscribe: canSubscribe, data: data, update: update, offlineAll: offlineAll };
         }
     },
     Sqlite: {
