@@ -16,27 +16,26 @@ $_().imports({
                 <Mosca id='mosca'/>\
                 <Proxy id='proxy'/>\
               </main>",
-        map: { share: "mosca/Sqlite mosca/Links mosca/Parts" }
+        map: { share: "mosca/Sqlite mosca/Utils" }
     },
     Mosca: { // 本 MQTT 服务器用于连接局域网内的 MQTT 客户端
         xml: "<main id='mosca' xmlns:i='mosca'>\
                 <i:Authorize id='auth'/>\
-                <i:Parts id='parts'/>\
+                <i:Utils id='utils'/>\
               </main>",
         fun: async function (sys, items, opts) {
-            let options = await items.parts.data();
             let server = new mosca.Server({port: 1883});
             server.on("ready", async () => {
-                await items.parts.offlineAll();
+                await items.utils.offlineAll();
                 Object.keys(items.auth).forEach(k => server[k] = items.auth[k]);
                 console.log("Mosca server is up and running"); 
             });
             server.on("subscribed", async (topic, client) => {
-                await items.parts.update(topic, 1);
+                await items.utils.update(topic, 1);
                 this.notify("to-gateway", {topic: "/SYS", pid: topic, online: 1});
             });
             server.on("unsubscribed", async (topic, client) => {
-                await items.parts.update(topic, 0);
+                await items.utils.update(topic, 0);
                 this.notify("to-gateway", {topic: "/SYS", pid: topic, online: 0});
             });
             server.on("published", (packet, client) => {
@@ -44,7 +43,7 @@ $_().imports({
                 if (packet.topic == "to-gateway") {
                     let payload = JSON.parse(packet.payload + '');
                     if (payload.topic == "/SYS")
-                        items.parts.update(payload.pid, payload.online);
+                        items.utils.update(payload.pid, payload.online);
                     this.notify("to-gateway", payload);
                 }
             });
@@ -55,20 +54,17 @@ $_().imports({
         }
     },
     Proxy: {  // 本代理作为客户端连接至远程云服务器
-        xml: "<main id='proxy' xmlns:i='mosca'>\
-                <i:Sqlite id='db'/>\
-                <i:Parts id='parts'/>\
-              </main>",
+        xml: "<Utils id='utils' xmlns='mosca'/>",
         fun: async function (sys, items, opts) {
-            let opts_ = await options();
-            let client  = require("mqtt").connect(opts_.server, {clientId: opts_.client_id});
+            let o = await items.utils.options();
+            let client  = require("mqtt").connect(o.server, {clientId: o.client_id});
             client.on("connect", async e => {
-                client.subscribe(opts_.client_id);
-                let parts = await items.parts.data();
+                client.subscribe(o.client_id);
+                let parts = await items.utils.data();
                 xp.each(parts, (key, item) => {
                     this.notify("to-gateway", {topic: "/SYS", pid: item.pid, online: item.online});
                 });
-                console.log("connected to " + opts_.server);
+                console.log("connected to " + o.server);
             });
             client.on("message", (topic, payload) => {
                 let p = JSON.parse(payload.toString());
@@ -76,59 +72,31 @@ $_().imports({
             });
             this.watch("to-gateway", (e, payload) => {
                 payload = JSON.stringify(payload);
-                client.publish(opts_.gateway, payload, {qos: 1, retain: true});
+                client.publish(o.gateway, payload, {qos: 1, retain: true});
             });
-            function options() {
-                return new Promise((resolve, reject) => {
-                    items.db.all(`SELECT * FROM options`, (err, data) => {
-                        if (err) throw err;
-                        let obj = {};
-                        data.forEach(i => obj[i.key] = i.value);
-                        resolve(obj);
-                    });
-                });
-            }
         }
     }
 });
 
 $_("mosca").imports({
     Authorize: {
-        xml: "<main id='authorize'>\
-                <Links id='links'/>\
-                <Parts id='parts'/>\
-              </main>",
+        xml: "<Utils id='utils'/>",
         fun: function (sys, items, opts) {
             async function authenticate(client, user, pass, callback) {
-                callback(null, await items.links.canLink(client.id));
+                callback(null, true);
             }
             async function authorizeSubscribe(client, topic, callback) {
-                callback(null, await items.parts.canSubscribe(topic));
+                callback(null, await items.utils.canSubscribe(topic));
             }
             return { authenticate: authenticate, authorizeSubscribe: authorizeSubscribe };
         }
     },
-    Links: {
-        xml: "<Sqlite id='db'/>",
-        fun: function (sys, items, opts) {
-            function canLink(linkId) {
-                return new Promise((resolve, reject) => {
-                    let stmt = `SELECT * FROM links WHERE id = '${linkId}'`;
-                    items.db.all(stmt, (err, data) => {
-                        if (err) throw err;
-                        resolve(!!data.length);
-                    });
-                });
-            }
-            return { canLink: canLink };
-        }
-    },
-    Parts: {
+    Utils: {
         xml: "<Sqlite id='db'/>",
         fun: function (sys, items, opts) {
             function canSubscribe(partId) {
                 return new Promise((resolve, reject) => {
-                    let stmt = `SELECT parts.* FROM links, parts WHERE parts.id = '${partId}' AND parts.link = links.id AND parts.online = 0`;
+                    let stmt = `SELECT * FROM parts WHERE parts.id = '${partId}' AND parts.online = 0`;
                     items.db.all(stmt, (err, data) => {
                         if (err) throw err;
                         resolve(!!data.length);
@@ -167,7 +135,17 @@ $_("mosca").imports({
                     });
                 });
             }
-            return { canSubscribe: canSubscribe, data: data, update: update, offlineAll: offlineAll };
+            function options() {
+                return new Promise((resolve, reject) => {
+                    items.db.all(`SELECT * FROM options`, (err, data) => {
+                        if (err) throw err;
+                        let obj = {};
+                        data.forEach(i => obj[i.key] = i.value);
+                        resolve(obj);
+                    });
+                });
+            }
+            return { canSubscribe: canSubscribe, data: data, update: update, offlineAll: offlineAll, options: options };
         }
     },
     Sqlite: {
