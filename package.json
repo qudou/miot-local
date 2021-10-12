@@ -1,6 +1,6 @@
 {
   "name": "miot-local",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "miot 物联网平台的局域网网关。",
   "main": "miot-local.js",
   "scripts": {

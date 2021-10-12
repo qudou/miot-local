@@ -1,5 +1,5 @@
 /*!
- * miot-local.js v1.0.0
+ * miot-local.js v1.0.2
  * https://github.com/qudou/miot-local
  * (c) 2009-2017 qudou
  * Released under the MIT license
