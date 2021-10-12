@@ -1,11 +1,13 @@
 # miot-local
 
-miot 物联网平台的局域网网关。
+miot 物联网平台的局域网网关模块。
 
-## 安装 samba
+## 安装
 
-sh```
-sudo apt-get -y install samba
+```bash
+$ npm install miot-local
 ```
 
-安装 samba 后，网内的配件可以通过计算机名 raspberrypi 连接网关。
+## 使用
+
+使用详情，请参阅 [局域网关](https://xmlplus.cn/miot#局域网关)。

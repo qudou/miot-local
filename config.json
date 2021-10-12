@@ -1,0 +1,9 @@
+{
+    "port": 1886,
+    "server": "mqtt://localhost:1883",
+    "client_id": "62cf572e-7c2a-4b87-96c6-a531cc5890ff",
+    "parts": [
+        { "id": "d9ae5656-9e5e-4991-b4e4-343897a11f28", "path": "/system" },
+        { "id": "35e64bc0-1268-477a-9327-94e880e67866", "path": "/player" }
+    ]
+}
