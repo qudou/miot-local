@@ -9,7 +9,7 @@ const mosca = require("mosca");
 const xmlplus = require("xmlplus");
 const config = JSON.parse(require("fs").readFileSync(`${__dirname}/config.json`));
 
-xmlplus("miot-local", (xp, $_) => {
+xmlplus("miot-local", (xp, $_) => { // 局域网关
 
 $_().imports({
     Index: {
@@ -73,7 +73,7 @@ $_().imports({
                 client.subscribe(config.client_id);
                 let parts = await items.utils.data();
                 xp.each(parts, (key, item) => {
-                    this.notify("to-gateway", {topic: "/SYS", pid: item.pid, online: item.online});
+                    this.notify("to-gateway", {topic: "/SYS", pid: item.id, online: item.online});
                 });
                 console.log("connected to " + config.server);
             });
