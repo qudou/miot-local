@@ -1,5 +1,5 @@
 /*!
- * miot-local.js v1.0.2
+ * miot-local.js v1.0.4
  * https://github.com/qudou/miot-local
  * (c) 2009-2017 qudou
  * Released under the MIT license
@@ -7,6 +7,7 @@
 
 const mosca = require("mosca");
 const xmlplus = require("xmlplus");
+const uid = "5ab6f0a1-e2b5-4390-80ae-3adf2b4ffd40";
 const config = JSON.parse(require("fs").readFileSync(`${__dirname}/config.json`));
 
 xmlplus("miot-local", (xp, $_) => { // 局域网关
@@ -19,7 +20,7 @@ $_().imports({
               </main>",
         map: { share: "mosca/Utils" }
     },
-    Mosca: { // 本 MQTT 服务器用于连接局域网内的 MQTT 客户端
+    Mosca: { // 本服务器用于连接网内客户端
         xml: "<main id='mosca' xmlns:i='mosca'>\
                 <i:Authorize id='auth'/>\
                 <i:Utils id='utils'/>\
@@ -34,11 +35,11 @@ $_().imports({
             });
             server.on("subscribed", async (topic, client) => {
                 await items.utils.update(topic, 1);
-                this.notify("to-gateway", {topic: "/SYS", pid: topic, online: 1});
+                this.notify("to-gateway", {pid: topic, online: 1});
             });
             server.on("unsubscribed", async (topic, client) => {
                 await items.utils.update(topic, 0);
-                this.notify("to-gateway", {topic: "/SYS", pid: topic, online: 0});
+                this.notify("to-gateway", {pid: topic, online: 0});
             });
             server.on("published", async (packet, client) => {
                 if (client == undefined) return;
@@ -52,10 +53,7 @@ $_().imports({
                         r.exec(l[i].path) && this.notify("to-part", [l[i].id, {topic: p.topic, pid: p.pid, body: p.body}]);
                     break;
                   case "to-gateway":
-                    p = JSON.parse(packet.payload + '');
-                    if (p.topic == "/SYS")
-                        items.utils.update(p.pid, p.online);
-                    this.notify("to-gateway", p);
+                    this.notify("to-gateway", JSON.parse(packet.payload + ''));
                   default:;
                 }
             });
@@ -73,7 +71,7 @@ $_().imports({
                 client.subscribe(config.client_id);
                 let parts = await items.utils.data();
                 xp.each(parts, (key, item) => {
-                    this.notify("to-gateway", {topic: "/SYS", pid: item.id, online: item.online});
+                    this.notify("to-gateway", {pid: item.id, online: item.online});
                 });
                 console.log("connected to " + config.server);
             });
@@ -83,7 +81,7 @@ $_().imports({
             });
             this.watch("to-gateway", (e, payload) => {
                 payload = JSON.stringify(payload);
-                client.publish("/SYS", payload, {qos: 1, retain: true});
+                client.publish(uid, payload, {qos: 1, retain: true});
             });
         }
     }
