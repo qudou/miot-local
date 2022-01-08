@@ -59,7 +59,7 @@ $_().imports({
             });
             this.watch("to-part", (e, topic, payload) => {
                 payload = JSON.stringify(payload);
-                server.publish({topic: topic, payload: payload, qos: 1, retain: true});
+                server.publish({topic: topic, payload: payload, qos: 1});
             });
         }
     },
@@ -73,16 +73,18 @@ $_().imports({
                 xp.each(parts, (key, item) => {
                     this.notify("to-gateway", {pid: item.id, online: item.online});
                 });
+                this.watch("to-gateway", toGateway);
                 console.log("connected to " + config.server);
             });
             client.on("message", (topic, payload) => {
                 let p = JSON.parse(payload.toString());
                 this.notify("to-part", [p.pid, p.body]);
             });
-            this.watch("to-gateway", (e, payload) => {
+            function toGateway(e, payload) {
                 payload = JSON.stringify(payload);
-                client.publish(uid, payload, {qos: 1, retain: true});
-            });
+                client.publish(uid, payload, {qos: 1});
+            }
+            client.on("close", () => this.unwatch("to-gateway"));
         }
     }
 });
