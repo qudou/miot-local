@@ -65,15 +65,15 @@ $_().imports({
     },
     Proxy: {  // 本代理作为客户端连接至远程云服务器
         xml: "<Utils id='utils' xmlns='mosca'/>",
-        fun: async function (sys, items, opts) {
+        fun: function (sys, items, opts) {
             let client  = require("mqtt").connect(config.server, {clientId: config.client_id});
             client.on("connect", async e => {
                 client.subscribe(config.client_id);
                 let parts = await items.utils.data();
+                this.watch("to-gateway", toGateway);
                 xp.each(parts, (key, item) => {
                     this.notify("to-gateway", {pid: item.id, online: item.online});
                 });
-                this.watch("to-gateway", toGateway);
                 console.log("connected to " + config.server);
             });
             client.on("message", (topic, payload) => {
