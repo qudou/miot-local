@@ -7,8 +7,10 @@
 
 const mosca = require("mosca");
 const xmlplus = require("xmlplus");
+const fs = require("fs");
 const uid = "5ab6f0a1-e2b5-4390-80ae-3adf2b4ffd40";
-const config = JSON.parse(require("fs").readFileSync(`${__dirname}/config.json`));
+const config = JSON.parse(fs.readFileSync(`${__dirname}/config.json`)
+                            .toString().replace(/dir/g, __dirname));
 
 xmlplus("miot-local", (xp, $_) => { // 局域网关
 
@@ -27,7 +29,7 @@ $_().imports({
               </main>",
         fun: async function (sys, items, opts) {
             let { pathToRegexp, match, parse, compile } = require("path-to-regexp");
-            let server = new mosca.Server({port: config.port});
+            let server = new mosca.Server(config.mosca);
             server.on("ready", async () => {
                 await items.utils.offlineAll();
                 Object.keys(items.auth).forEach(k => server[k] = items.auth[k]);
@@ -66,15 +68,18 @@ $_().imports({
     Proxy: {  // 本代理作为客户端连接至远程云服务器
         xml: "<Utils id='utils' xmlns='mosca'/>",
         fun: function (sys, items, opts) {
-            let client  = require("mqtt").connect(config.server, {clientId: config.client_id});
+            let proxy = config.proxy;
+            let mqtt = require("mqtt");
+            proxy.ca = proxy.ca && fs.readFileSync(proxy.ca).toString();
+            let client  = mqtt.connect(proxy);
             client.on("connect", async e => {
-                client.subscribe(config.client_id);
+                client.subscribe(proxy.clientId);
                 let parts = await items.utils.data();
                 this.watch("to-gateway", toGateway);
                 xp.each(parts, (key, item) => {
                     this.notify("to-gateway", {pid: item.id, online: item.online});
                 });
-                console.log("connected to " + config.server);
+                console.log(`connected to ${proxy.protocol}://${proxy.host}:${proxy.port}`);
             });
             client.on("message", (topic, payload) => {
                 let p = JSON.parse(payload.toString());
