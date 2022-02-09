@@ -1,6 +1,6 @@
 {
   "name": "miot-local",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "miot 物联网平台的局域网网关。",
   "main": "miot-local.js",
   "scripts": {
@@ -18,7 +18,7 @@
   "bugs": {
     "url": "https://github.com/qudou/miot-local/issues"
   },
-  "homepage": "https://github.com/qudou/miot-local#readme",
+  "homepage": "https://xmlplus.cn/miot#局域网关",
   "dependencies": {
     "mosca": "^2.8.0",
     "sqlite3": "^4.0.0",
