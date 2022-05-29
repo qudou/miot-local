@@ -10,4 +10,4 @@ $ npm install miot-local
 
 ## 使用
 
-使用详情，请参阅 [局域网关](https://xmlplus.cn/miot#局域网关)。
+使用详情，请参阅 [内网网关](https://xmlplus.cn/miot#内网网关)。

@@ -1,11 +1,11 @@
 {
-    "proxy": {
+    "remote": {
         "port": 1883,
         "host": "localhost",
         "clientId": "be1aa660-2b48-11ec-a191-4dbcbb23f97f",
         "protocol": "mqtt"
     },
-    "mosca": {
+    "gateway": {
         "port": 1883
     },
     "parts": [
