@@ -1,7 +1,7 @@
 /*!
- * miot-local.js v1.0.6
+ * miot-local.js v1.0.4
  * https://github.com/qudou/miot-local
- * (c) 2017-2021 qudou
+ * (c) 2009-2017 qudou
  * Released under the MIT license
  */
 
@@ -37,11 +37,11 @@ $_().imports({
             });
             server.on("subscribed", async (topic, client) => {
                 await items.utils.update(topic, 1);
-                this.notify("to-gateway", {pid: topic, online: 1});
+                this.notify("to-gateway", {pid: topic, data: 1});
             });
             server.on("unsubscribed", async (topic, client) => {
                 await items.utils.update(topic, 0);
-                this.notify("to-gateway", {pid: topic, online: 0});
+                this.notify("to-gateway", {pid: topic, data: 0});
             });
             server.on("published", async (packet, client) => {
                 if (client == undefined) return;
@@ -77,7 +77,7 @@ $_().imports({
                 let parts = await items.utils.data();
                 this.watch("to-gateway", toGateway);
                 xp.each(parts, (key, item) => {
-                    this.notify("to-gateway", {pid: item.id, online: item.online});
+                    this.notify("to-gateway", {pid: item.id, data: item.online});
                 });
                 console.log(`connected to ${proxy.protocol}://${proxy.host}:${proxy.port}`);
             });
