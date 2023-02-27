@@ -20,7 +20,15 @@ $_().imports({
                 <Mosca id='mosca'/>\
                 <Proxy id='proxy'/>\
               </main>",
-        map: { share: "mosca/Utils" }
+        map: { share: "mosca/Utils" },
+        fun: function (sys, items, opts) {
+            sys.mosca.on("to-gateway", function (e) {
+                sys.proxy.notify(e.type, [].slice.call(arguments).slice(1));
+            });
+            sys.proxy.on("to-part", function (e) {
+                sys.mosca.notify(e.type, [].slice.call(arguments).slice(1));
+            });
+        }
     },
     Mosca: { // 本服务器用于连接网内客户端
         xml: "<main id='mosca' xmlns:i='mosca'>\
@@ -37,11 +45,15 @@ $_().imports({
             });
             server.on("subscribed", async (topic, client) => {
                 await items.utils.update(topic, 1);
-                this.notify("to-gateway", {pid: topic, data: 1});
+                this.trigger("to-gateway", {pid: topic, data: 1});
             });
             server.on("unsubscribed", async (topic, client) => {
                 await items.utils.update(topic, 0);
-                this.notify("to-gateway", {pid: topic, data: 0});
+                this.trigger("to-gateway", {pid: topic, data: 0});
+            });
+			server.on("clientDisconnected", async (client) => {
+                await items.utils.update(client.id, 0);
+                this.trigger("to-gateway", {pid: client.id, data: 0});
             });
             server.on("published", async (packet, client) => {
                 if (client == undefined) return;
@@ -55,7 +67,7 @@ $_().imports({
                         r.exec(l[i].path) && this.notify("to-part", [l[i].id, {topic: p.topic, pid: p.pid, body: p.body}]);
                     break;
                   case "to-gateway":
-                    this.notify("to-gateway", JSON.parse(packet.payload + ''));
+                    this.trigger("to-gateway", JSON.parse(packet.payload + ''));
                   default:;
                 }
             });
@@ -65,7 +77,7 @@ $_().imports({
             });
         }
     },
-    Proxy: {  // 本代理作为客户端连接至远程云服务器
+    Proxy: { // 本代理作为客户端连接至远程云服务器
         xml: "<Utils id='utils' xmlns='mosca'/>",
         fun: function (sys, items, opts) {
             let proxy = config.proxy;
@@ -83,7 +95,7 @@ $_().imports({
             });
             client.on("message", (topic, payload) => {
                 let p = JSON.parse(payload.toString());
-                this.notify("to-part", [p.pid, p.body]);
+                this.trigger("to-part", [p.pid, p.body]);
             });
             function toGateway(e, payload) {
                 payload = JSON.stringify(payload);
